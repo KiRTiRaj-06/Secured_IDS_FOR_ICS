@@ -1,0 +1,264 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto-no-auth.conf:ro
+    networks:
+      - ot-lab
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h 127.0.0.1 -t healthcheck -C 1 -W 1 >/dev/null 2>&1 || test $$? -eq 27"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  detector:
+    build: .
+    command: ["python", "-m", "ics_ids.detector"]
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: ot/lab/telemetry
+      ALERT_PATH: /var/log/ics-ids/alerts.jsonl
+      MODEL_PATH: /models/random-forest.joblib
+      IDS_POLICY_PATH: /app/config/ids-policy.json
+      MANIFEST_PATH: /data/manifests
+    volumes:
+      - ./output:/var/log/ics-ids
+      - ./models:/models
+      - ./reports:/reports
+      - ./data:/data
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - ot-lab
+    restart: unless-stopped
+
+  gateway:
+    build: .
+    command: ["python", "-m", "ics_ids.gateway"]
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: ot/lab/telemetry
+      DNP3_HOST: ${DNP3_HOST:-dnp3-outstation}
+      DNP3_PORT: ${DNP3_PORT:-20000}
+      DNP3_MASTER_ADDRESS: ${DNP3_MASTER_ADDRESS:-2}
+      DNP3_OUTSTATION_ADDRESS: ${DNP3_OUTSTATION_ADDRESS:-1}
+      DNP3_POLL_INTERVAL: ${DNP3_POLL_INTERVAL:-2.0}
+      DNP3_PROVIDER: ${DNP3_PROVIDER:-unsupported}
+      EVENT_PATH: /var/log/ics-ids/events.jsonl
+    volumes:
+      - ./output:/var/log/ics-ids
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - ot-lab
+    profiles: ["dnp3"]
+
+  simulator:
+    build: .
+    command: ["python", "-m", "ics_ids.simulator"]
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: ot/lab/telemetry
+      SCENARIO: ${SCENARIO:-benign}
+      RUN_ID: ${RUN_ID:-local-demo}
+      PUBLISH_INTERVAL: ${PUBLISH_INTERVAL:-1.0}
+      MAX_MESSAGES: ${MAX_MESSAGES:-0}
+      EVENT_PATH: /var/log/ics-ids/events.jsonl
+    volumes:
+      - ./output:/var/log/ics-ids
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - ot-lab
+    profiles: ["sim"]
+
+  process-simulator:
+    build: .
+    command: ["python", "-m", "ics_ids.process_simulator"]
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: ot/lab/telemetry
+      COMMAND_TOPIC: ot/lab/command
+      PUBLISH_INTERVAL: ${PROCESS_INTERVAL:-1.0}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - ot-lab
+    profiles: ["live"]
+
+  hmi:
+    build: .
+    command: ["python", "-m", "ics_ids.hmi_server"]
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: ot/lab/telemetry
+      COMMAND_TOPIC: ot/lab/command
+      HMI_PORT: "8080"
+      ALERT_PATH: /var/log/ics-ids/alerts.jsonl
+    ports:
+      - "127.0.0.1:${HMI_HOST_PORT:-8090}:8080"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - ot-lab
+      - hmi-edge
+    volumes:
+      - ./output:/var/log/ics-ids:ro
+    profiles: ["live"]
+
+  suricata-live:
+    image: jasonish/suricata:8.0.2
+    command: ["-i", "eth0", "-S", "/rules/local.rules", "--init-errors-fatal", "-l", "/logs"]
+    network_mode: "service:mosquitto"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./config/suricata/local.rules:/rules/local.rules:ro
+      - ./output/suricata-live:/logs
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles: ["nids"]
+
+  sensor-follower:
+    build: .
+    command: ["python", "-m", "ics_ids.tail_sensor_logs"]
+    environment:
+      SURICATA_EVE_PATH: /sensors/eve.json
+      ALERT_PATH: /var/log/ics-ids/alerts.jsonl
+      SENSOR_POLL_SECONDS: "0.5"
+    volumes:
+      - ./output/suricata-live:/sensors:ro
+      - ./output:/var/log/ics-ids
+    depends_on:
+      suricata-live:
+        condition: service_started
+    networks:
+      - ot-lab
+    restart: unless-stopped
+    profiles: ["nids"]
+
+  dnp3-outstation:
+    build:
+      context: .
+      dockerfile: Dockerfile.dnp3
+    command: ["python", "-m", "ics_ids.dnp3_outstation"]
+    environment:
+      DNP3_BIND_HOST: 0.0.0.0
+      DNP3_PORT: "20000"
+      DNP3_MASTER_ADDRESS: "2"
+      DNP3_OUTSTATION_ADDRESS: "1"
+      DNP3_POINT_INTERVAL: "2.0"
+    networks:
+      - ot-lab
+    profiles: ["dnp3-live"]
+
+  dnp3-tap:
+    build: .
+    command: ["python", "-m", "ics_ids.tcp_relay"]
+    environment:
+      RELAY_LISTEN_PORT: "20000"
+      RELAY_UPSTREAM_HOST: dnp3-outstation
+      RELAY_UPSTREAM_PORT: "20000"
+      AUTHORIZED_DNP3_CLIENT_HOST: dnp3-live-gateway
+      ALERT_PATH: /var/log/ics-ids/alerts.jsonl
+    depends_on:
+      dnp3-outstation:
+        condition: service_started
+    networks:
+      - ot-lab
+    volumes:
+      - ./output:/var/log/ics-ids
+    restart: unless-stopped
+    profiles: ["dnp3-live", "nids"]
+
+  suricata-dnp3-live:
+    image: jasonish/suricata:8.0.2
+    command: ["-i", "eth0", "-S", "/rules/local.rules", "--init-errors-fatal", "-l", "/logs"]
+    network_mode: "service:dnp3-tap"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./config/suricata/local.rules:/rules/local.rules:ro
+      - ./output/suricata-dnp3-live:/logs
+    depends_on:
+      dnp3-tap:
+        condition: service_started
+    restart: unless-stopped
+    profiles: ["dnp3-live", "nids"]
+
+  dnp3-sensor-follower:
+    build: .
+    command: ["python", "-m", "ics_ids.tail_sensor_logs"]
+    environment:
+      SURICATA_EVE_PATH: /sensors/eve.json
+      ALERT_PATH: /var/log/ics-ids/alerts.jsonl
+      SENSOR_POLL_SECONDS: "0.5"
+    volumes:
+      - ./output/suricata-dnp3-live:/sensors:ro
+      - ./output:/var/log/ics-ids
+    depends_on:
+      suricata-dnp3-live:
+        condition: service_started
+    networks:
+      - ot-lab
+    restart: unless-stopped
+    profiles: ["dnp3-live", "nids"]
+
+  dnp3-live-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.dnp3
+    command: ["python", "-m", "ics_ids.dnp3_live_gateway"]
+    environment:
+      DNP3_HOST: dnp3-tap
+      DNP3_SOURCE: dnp3-outstation
+      DNP3_PORT: "20000"
+      DNP3_MASTER_ADDRESS: "2"
+      DNP3_OUTSTATION_ADDRESS: "1"
+      DNP3_POLL_INTERVAL: "3.0"
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_TOPIC: ot/lab/telemetry
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      dnp3-tap:
+        condition: service_started
+    networks:
+      - ot-lab
+    profiles: ["dnp3-live"]
+
+  dnp3-rogue-master:
+    build:
+      context: .
+      dockerfile: Dockerfile.dnp3
+    command: ["python", "-m", "ics_ids.dnp3_rogue_master"]
+    environment:
+      DNP3_HOST: dnp3-tap
+      DNP3_PORT: "20000"
+      DNP3_MASTER_ADDRESS: "99"
+      DNP3_OUTSTATION_ADDRESS: "1"
+    networks:
+      - ot-lab
+    profiles: ["dnp3-attack"]
+
+networks:
+  ot-lab:
+    internal: true
+  # Only the HMI joins this network so Docker can publish its localhost port.
+  hmi-edge:

@@ -1,0 +1,16 @@
+.env
+.secrets/
+config/mosquitto-passwords
+config/certs/
+.venv/
+__pycache__/
+*.py[cod]
+output/*
+!output/.gitkeep
+data/raw/*
+data/processed/*
+models/*
+data/manifests/*
+!data/manifests/.gitkeep
+reports/*
+!reports/.gitkeep

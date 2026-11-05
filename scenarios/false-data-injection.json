@@ -1,0 +1,6 @@
+{
+  "id": "false-data-injection",
+  "description": "Synthetic telemetry value exceeds the configured tank-level range.",
+  "simulator_scenario": "fdi",
+  "expected_rules": ["OT-RANGE-001", "OT-RATE-001"]
+}

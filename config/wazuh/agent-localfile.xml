@@ -1,0 +1,5 @@
+<!-- Add this localfile block inside the Wazuh agent's <ossec_config> element. -->
+<localfile>
+  <location>/var/log/ics-ids/alerts.jsonl</location>
+  <log_format>json</log_format>
+</localfile>

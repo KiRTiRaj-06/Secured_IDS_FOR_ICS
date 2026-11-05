@@ -1,0 +1,7 @@
+# Laboratory-only rule. This detects DNP3 traffic arriving from any source that
+# the lab policy has not separately authorized. Set HOME_NET for your own lab.
+alert tcp any any -> any 20000 (msg:"OT LAB DNP3 traffic observed"; flow:to_server,established; sid:9000001; rev:1; classtype:protocol-command-decode;)
+
+# MQTT commands should not be published by the telemetry gateway. The gateway
+# publishes only to ot/lab/telemetry, not to this command topic.
+alert tcp any any -> any 1883 (msg:"OT LAB MQTT command topic string observed"; flow:to_server,established; content:"ot/lab/command"; nocase; sid:9000002; rev:1; classtype:attempted-admin;)

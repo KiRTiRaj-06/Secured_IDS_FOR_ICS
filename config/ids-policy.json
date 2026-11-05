@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "authorized_dnp3_control_sources": ["dnp3-master"],
+  "telemetry_points": {
+    "tank_level_pct": {
+      "minimum": 0.0,
+      "maximum": 100.0,
+      "max_delta": 20.0
+    }
+  },
+  "rate_limit_messages": 10,
+  "rate_window_seconds": 2.0
+}

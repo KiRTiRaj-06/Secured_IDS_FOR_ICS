@@ -1,0 +1,6 @@
+{
+  "id": "flood",
+  "description": "Bounded high-rate telemetry publication inside the private Compose network.",
+  "simulator_scenario": "flood",
+  "expected_rules": ["OT-FLOOD-001"]
+}

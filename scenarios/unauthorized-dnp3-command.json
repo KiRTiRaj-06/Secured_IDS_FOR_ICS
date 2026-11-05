@@ -1,0 +1,6 @@
+{
+  "id": "unauthorized-dnp3-command",
+  "description": "A DNP3 control operation from a source absent from the explicit allowlist.",
+  "sensor_input": "Zeek dnp3_control.log",
+  "expected_rules": ["OT-DNP3-UNAUTHORIZED-SOURCE-001"]
+}

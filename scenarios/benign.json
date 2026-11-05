@@ -1,0 +1,5 @@
+{
+  "id": "benign",
+  "description": "Normal periodic tank-level telemetry within the configured process range.",
+  "expected_rules": []
+}

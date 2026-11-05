@@ -1,0 +1,6 @@
+{
+  "id": "replay",
+  "description": "Previously seen synthetic telemetry sequence is repeated.",
+  "simulator_scenario": "replay",
+  "expected_rules": ["OT-REPLAY-001"]
+}

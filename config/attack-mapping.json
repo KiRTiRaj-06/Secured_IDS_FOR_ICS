@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "rules": {
+    "OT-REPLAY-001": {
+      "technique_id": "T0821",
+      "technique_name": "Modify Controller Tasking",
+      "context": "Controlled telemetry replay demonstration"
+    },
+    "OT-RANGE-001": {
+      "technique_id": "T0856",
+      "technique_name": "Spoof Reporting Message",
+      "context": "Controlled false-data/range demonstration"
+    },
+    "OT-RATE-001": {
+      "technique_id": "T0856",
+      "technique_name": "Spoof Reporting Message",
+      "context": "Controlled false-data/rate demonstration"
+    },
+    "OT-FLOOD-001": {
+      "technique_id": "T0814",
+      "technique_name": "Denial of Service",
+      "context": "Controlled bounded message-flood demonstration"
+    }
+  }
+}

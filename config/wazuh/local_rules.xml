@@ -1,0 +1,104 @@
+<!-- Copy rules into the Wazuh manager's local_rules.xml, then restart wazuh-manager. -->
+<group name="ics_ids,">
+  <rule id="100500" level="7">
+    <decoded_as>json</decoded_as>
+    <field name="sensor">^python-ids$</field>
+    <description>ICS IDS event from Python detector</description>
+  </rule>
+
+  <rule id="100501" level="10">
+    <if_sid>100500</if_sid>
+    <field name="rule_id">^OT-RANGE-001$</field>
+    <description>ICS telemetry value outside configured process range</description>
+  </rule>
+
+  <rule id="100502" level="9">
+    <if_sid>100500</if_sid>
+    <field name="rule_id">^OT-RATE-001$</field>
+    <description>ICS telemetry rate-of-change threshold exceeded</description>
+  </rule>
+
+  <rule id="100503" level="9">
+    <if_sid>100500</if_sid>
+    <field name="rule_id">^OT-REPLAY-001$</field>
+    <description>ICS telemetry sequence replay or regression detected</description>
+  </rule>
+
+  <rule id="100504" level="8">
+    <if_sid>100500</if_sid>
+    <field name="rule_id">^OT-FLOOD-001$</field>
+    <description>ICS telemetry message rate threshold exceeded</description>
+  </rule>
+
+  <rule id="100505" level="8">
+    <if_sid>100500</if_sid>
+    <field name="rule_id">^OT-ML-001$</field>
+    <description>ICS telemetry classified as anomalous by the trained model</description>
+  </rule>
+
+  <rule id="100520" level="6">
+    <decoded_as>json</decoded_as>
+    <field name="sensor">^suricata$</field>
+    <description>Suricata network IDS signature alert</description>
+  </rule>
+
+  <rule id="100524" level="9">
+    <if_sid>100520</if_sid>
+    <field name="rule_id">^SURICATA-9000002$</field>
+    <description>ICS MQTT command topic observed by network IDS</description>
+  </rule>
+
+<rule id="100525" level="7">
+  <if_sid>100520</if_sid>
+  <field name="rule_id">^SURICATA-9000001$</field>
+  <description>ICS DNP3 traffic observed by network IDS</description>
+</rule>
+
+  <rule id="100510" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="sensor">^zeek-icsnpp-dnp3$</field>
+    <description>DNP3 control log alert from Zeek ICSNPP</description>
+  </rule>
+
+  <rule id="100511" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="sensor">^dnp3-ml$</field>
+    <description>DNP3 ML classification event</description>
+  </rule>
+
+  <rule id="100512" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="sensor">^mqtt-ml$</field>
+    <description>MQTT ML classification event</description>
+  </rule>
+
+  <rule id="100522" level="10">
+    <if_sid>100511</if_sid>
+    <field name="rule_id">^OT-DNP3-ML-001$</field>
+    <description>DNP3 flow classified as a non-normal operation</description>
+  </rule>
+
+  <rule id="100523" level="9">
+    <if_sid>100512</if_sid>
+    <field name="rule_id">^OT-MQTT-ML-001$</field>
+    <description>MQTT packet classified as non-legitimate traffic</description>
+  </rule>
+
+  <rule id="100521" level="12">
+    <if_sid>100510</if_sid>
+    <field name="rule_id">^OT-DNP3-UNAUTHORIZED-SOURCE-001$</field>
+    <description>DNP3 control operation originated from an unapproved source</description>
+  </rule>
+
+  <rule id="100526" level="7">
+    <decoded_as>json</decoded_as>
+    <field name="sensor">^dnp3-tap$</field>
+    <description>DNP3 lab traffic-control event</description>
+  </rule>
+
+  <rule id="100527" level="12">
+    <if_sid>100526</if_sid>
+    <field name="rule_id">^OT-DNP3-UNAUTHORIZED-SOURCE-001$</field>
+    <description>DNP3 client originated from an unapproved source</description>
+  </rule>
+</group>
